@@ -1,0 +1,59 @@
+version: "3.4"
+
+services:
+
+  testbed:
+    build:
+      context: .
+      dockerfile: ./docker/sbt/Dockerfile
+    working_dir: /root/test
+    volumes:
+      - ".:/root/test"
+      - "$HOME/.m2:/root/.m2"
+      - "$HOME/.ivy2:/root/.ivy2"
+      - "$HOME/.coursier:/root/.coursier"
+    depends_on:
+      - test-katsubushi
+      - test-postgres
+    env_file:
+      - .env
+    environment:
+      KATSUBUSHI_HOST: test-katsubushi
+      KATSUBUSHI_PORT: 11212
+      PGHOST: test-postgres
+      PGPORT: 5432
+      SBT_OPTS: -XX:+CMSClassUnloadingEnabled -XX:MaxMetaspaceSize=386M
+      SKINNY_ENV: test
+
+  test-katsubushi:
+    image: katsubushi/katsubushi
+    ports:
+      - 11212:11212
+    command: -worker-id 1
+
+  flyway:
+    build:
+      context: ./docker/flyway
+    volumes:
+      - ./migration:/flyway/sql
+    depends_on:
+      - test-postgres
+    env_file:
+      - .env
+    environment:
+      PGHOST: test-postgres
+      PGPORT: 5432
+      FLYWAY_URL: jdbc:postgresql://test-postgres:5432/sandbox
+
+  test-postgres:
+    image: postgres:10
+    ports:
+      - 5432:5432
+    volumes:
+      - vol-test-pg-data:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+volumes:
+  vol-test-pg-data:
+    driver: local
