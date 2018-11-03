@@ -1,0 +1,1 @@
+# scala-kansai-summit-2018
