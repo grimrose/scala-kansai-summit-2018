@@ -1,0 +1,11 @@
+.env
+
+*.class
+.idea
+target/
+
+.venv
+
+.ipynb_checkpoints
+
+credentials
