@@ -1,0 +1,282 @@
+version: "3.4"
+
+services:
+
+  identity:
+    build:
+      context: ./app/identity/http/target/docker/stage
+    volumes:
+      - "./credentials/:/credentials/:ro"
+    ports:
+      - 9001:9001
+    networks:
+      - nw-sandbox
+    environment:
+      KATSUBUSHI_HOST: katsubushi
+      KATSUBUSHI_PORT: 11212
+      JAEGER_COLLECTOR_HOST: jaeger-collector
+      JAEGER_QUERY_HOST: jaeger-query
+      JAEGER_AGENT_HOST: jaeger-agent
+      JAEGER_PORT_QUERY_HTTP: 80
+      JAEGER_PORT_AGENT_ZIPKIN_THRIFT: 5775
+      JAEGER_PORT_AGENT_COMPACT: 6831
+      JAEGER_PORT_AGENT_BINARY: 6832
+      JAEGER_PORT_ZIPKIN_COLLECTOR: 14268
+    depends_on:
+      - katsubushi
+      - jaeger-collector
+      - jaeger-agent
+      - fluentd
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.scala.identity.{{.ID}}
+        fluentd-async-connect: "true"
+
+  katsubushi:
+    image: katsubushi/katsubushi
+    ports:
+      - 11212:11212
+    expose:
+      - 11212
+    networks:
+      - nw-sandbox
+    command: -redis redis://redis:6379/0
+    depends_on:
+      - redis
+      - fluentd
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.katsubushi.{{.ID}}
+        fluentd-async-connect: "true"
+
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    networks:
+      - nw-sandbox
+
+  message:
+    build:
+      context: ./app/message/http/target/docker/stage
+    volumes:
+      - "./credentials/:/credentials/:ro"
+    ports:
+      - 9002:9002
+      - 8082:8082
+    networks:
+      - nw-sandbox
+    env_file:
+      - .env
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      IDENTITY_HOST: nginx
+      IDENTITY_PORT: 8080
+      JAEGER_COLLECTOR_HOST: jaeger-collector
+      JAEGER_QUERY_HOST: jaeger-query
+      JAEGER_AGENT_HOST: jaeger-agent
+      JAEGER_PORT_QUERY_HTTP: 80
+      JAEGER_PORT_AGENT_ZIPKIN_THRIFT: 5775
+      JAEGER_PORT_AGENT_COMPACT: 6831
+      JAEGER_PORT_AGENT_BINARY: 6832
+      JAEGER_PORT_ZIPKIN_COLLECTOR: 14268
+    depends_on:
+      - postgres
+      - identity
+      - jaeger-collector
+      - jaeger-agent
+      - fluentd
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.scala.message.{{.ID}}
+        fluentd-async-connect: "true"
+
+  flyway:
+    build:
+      context: ./docker/flyway
+    volumes:
+      - ./migration:/flyway/sql
+    networks:
+      - nw-sandbox
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/sandbox
+    command: migrate
+
+  postgres:
+    image: postgres:10
+    ports:
+      - 5432:5432
+    expose:
+      - 5432
+    networks:
+      - nw-sandbox
+    volumes:
+      - vol-pg-data:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+  nginx:
+    image: opentracing/nginx-opentracing
+    networks:
+      - nw-sandbox
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/jaeger-config.json:/etc/jaeger-config.json
+      - ./docker/nginx/zipkin-config.json:/etc/zipkin-config.json
+    ports:
+      - 8080:8080
+    depends_on:
+      - message
+      - identity
+      - jaeger-collector
+      - jaeger-agent
+      - fluentd
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.nginx.{{.ID}}
+        fluentd-async-connect: "true"
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.1.0
+    networks: 
+      - nw-sandbox
+    ports:
+      - 9113:9113
+    command: 
+      - '-nginx.scrape-uri'
+      - http://nginx:8080/stub_status
+    depends_on:
+      - nginx
+
+  jaeger-collector:
+    image: jaegertracing/jaeger-collector:1.7
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+    command: 
+      - "--es.server-urls=http://elasticsearch:9200"
+      - "--collector.zipkin.http-port=9411"
+    networks:
+      - nw-sandbox
+    ports:
+      - 9411:9411     # The http port for the Zipkin collector service
+      - 14267:14267   # The tchannel port for the collector service
+      - 14268:14268   # The http port for the collector service
+      - 14269:14269   # health check
+    restart: on-failure # elasticsearch startup is slow
+    depends_on:
+      - elasticsearch
+
+  jaeger-agent:
+    image: jaegertracing/jaeger-agent:1.7
+    command:
+      - "--collector.host-port=jaeger-collector:14267"
+      # - "--reporter.tchannel.collector.host-port=jaeger-collector:14267"
+    networks:
+      - nw-sandbox
+    ports:
+      - 5775:5775/udp # agent zipkin host:port for the UDP server
+      - 6831:6831/udp # agent jaeger-compact host:port for the UDP server
+      - 6832:6832/udp # agent jaeger-binary host:port for the UDP server
+      - 5778:5778     # agent host:port of the http server
+    restart: on-failure # elasticsearch startup is slow
+    depends_on:
+      - jaeger-collector
+
+  jaeger-query:
+    image: jaegertracing/jaeger-query:1.7
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+    command: 
+      - "--es.server-urls=http://elasticsearch:9200"
+    networks:
+      - nw-sandbox
+    ports:
+      - 16686:16686   # query The port for the query service
+      - 16687:16687   # The http port for the health check service
+    restart: on-failure # elasticsearch startup is slow
+    depends_on:
+      - elasticsearch
+
+  fluentd:
+    build: ./docker/fluentd/
+    environment:
+      FLUENTD_CONF: fluent.conf
+      FLUENTD_OPT: -v
+      TZ: "Asia/Tokyo"
+    ports:
+      - 24224:24224
+      - 24224:24224/udp
+    networks:
+      - nw-sandbox
+    depends_on:
+      - elasticsearch
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - vol-es-data:/usr/share/elasticsearch/data
+    networks:
+      - nw-sandbox
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.4.2
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    networks:
+      - nw-sandbox
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - vol-prom-data:/prometheus
+    ports:
+      - 9090:9090
+    depends_on:
+      - message
+      - jaeger-collector
+      - jaeger-agent
+      - jaeger-query
+      - nginx-exporter
+    networks: 
+      - nw-sandbox
+
+volumes:
+  vol-pg-data:
+    driver: local
+  vol-es-data:
+    driver: local
+  vol-prom-data:
+    driver: local
+
+networks:
+  nw-sandbox:
+    driver: bridge
