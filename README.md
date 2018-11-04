@@ -7,6 +7,7 @@ scala-kansai-summit-2018
 
 * docker
 * docker-compose
+* sbt
 * pipenv
 * [kt3k/saku](https://github.com/kt3k/saku)
 
