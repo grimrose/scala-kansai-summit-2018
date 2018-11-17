@@ -17,6 +17,14 @@ jobs:
       FLYWAY_PASSWORD: sandbox-pass
       FLYWAY_BASELINE_VERSION: 000
       FLYWAY_BASELINE_ON_MIGRATE: true
+      FLYWAY_URL: jdbc:postgresql://localhost:5432/sandbox
+      FLYWAY_LOCATIONS: ${CIRCLE_WORKING_DIRECTORY}/migration
+      KATSUBUSHI_HOST: localhost
+      KATSUBUSHI_PORT: 11212
+      PGHOST: localhost
+      PGPORT: 5432
+      SBT_OPTS: -XX:+CMSClassUnloadingEnabled -XX:MaxMetaspaceSize=386M
+      SKINNY_ENV: test
 
     steps:
       - run:
