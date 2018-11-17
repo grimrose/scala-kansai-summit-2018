@@ -1,23 +1,33 @@
 package ninja.grimrose.sandbox
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
 import akka.stream.Materializer
-import ninja.grimrose.sandbox.message.gateway.IdentityApiAdapter
+import ninja.grimrose.sandbox.message.gateway.{ IdentityApiAdapter, SimpleAkkaHttpClient }
 import ninja.grimrose.sandbox.message.infra.database.{ DBConnectionPoolName, MessageRepositoryOfJdbc }
 import ninja.grimrose.sandbox.message.infra.network.IdentityApiAdapterImpl
 import ninja.grimrose.sandbox.message.usecase._
 import skinny.SkinnyConfig
 import wvlet.airframe._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ ExecutionContext, Future }
 
 package object message {
 
   def design: Design =
     newDesign
+      .bind[SimpleAkkaHttpClient].toSingletonProvider { actorSystem: ActorSystem =>
+        new SimpleAkkaHttpClient {
+          override def doRequest(): HttpRequest => Future[HttpResponse] = Http()(actorSystem).singleRequest(_)
+        }
+      }
       .bind[IdentityApiAdapter].toSingletonProvider {
-        (config: SkinnyConfig, actorSystem: ActorSystem, materializer: Materializer) =>
-          new IdentityApiAdapterImpl(config, actorSystem, materializer)
+        (config: SkinnyConfig,
+         actorSystem: ActorSystem,
+         materializer: Materializer,
+         httpClient: SimpleAkkaHttpClient) =>
+          new IdentityApiAdapterImpl(config, actorSystem, materializer, httpClient)
       }
       .bind[MessageRepository].toInstance(new MessageRepositoryOfJdbc)
       .bind[DBConnectionPoolName].toSingleton
