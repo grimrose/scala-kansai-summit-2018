@@ -71,12 +71,12 @@ lazy val baseSettings = Seq(
   publishArtifact in (Compile, packageSrc) := false,
   logBuffered in Test := false,
   fork in Test := true,
-    testForkedParallel in Test := true,
+  testForkedParallel in Test := true,
   parallelExecution in Test := false,
   scalafmtOnCompile := true,
   libraryDependencies ++= akkaDependencies ++ opencensusDependencies ++ Seq(
     "org.wvlet.airframe" %% "airframe" % airframeVersion,
-    "org.pegdown" % "pegdown" % "1.6.0" % Test
+    "org.pegdown"        % "pegdown"   % "1.6.0" % Test
   ),
   testOptions in Test ++= Seq(
     Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
