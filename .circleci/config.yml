@@ -2,10 +2,34 @@ version: 2
 jobs:
   build:
     docker:
-      - image: buildpack-deps:trusty
+      - image: circleci/openjdk:8-jdk-node-browsers
+      - image: circleci/postgres:10
+        environment:
+          POSTGRES_USER: sandbox
+          POSTGRES_PASSWORD: sandbox-pass
+          POSTGRES_DB: sandbox
+      - image: katsubushi/katsubushi
+        command: ["-worker-id", "1"]
+
     environment:
+      FLYWAY_VERSION: 5.2.1
+      FLYWAY_USER: sandbox
+      FLYWAY_PASSWORD: sandbox-pass
+      FLYWAY_BASELINE_VERSION: 000
+      FLYWAY_BASELINE_ON_MIGRATE: true
 
     steps:
+      - run:
+          name: expand PATH
+          command: echo 'PATH=${HOME}/flyway:$PATH' >> $BASH_ENV
+      - run:
+          name: Install flyway
+          command: |
+            curl -L https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}.tar.gz -o flyway-commandline-${FLYWAY_VERSION}.tar.gz
+            tar -xzf flyway-commandline-${FLYWAY_VERSION}.tar.gz
+            mv flyway-${FLYWAY_VERSION} ${HOME}/flyway
+            flyway -v
+
       - checkout
 
       - restore_cache:
@@ -14,41 +38,27 @@ jobs:
       - setup_remote_docker:
           version: 18.03.1-ce
 
-      - run:
-          name: Install Docker client
+      - run: # @see https://github.com/CircleCI-Public/circleci-demo-docker
+          name: Waiting for Postgres to be ready
           command: |
-            set -x
-            VER="18.03.1-ce"
-            curl -L -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
-            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
-            mv /tmp/docker/* /usr/bin
-            docker version
-
-      - run:
-          name: Install Docker Compose
-          command: |
-            set -x
-            curl -L "https://github.com/docker/compose/releases/download/1.23.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            chmod +x /usr/local/bin/docker-compose
-            docker-compose --version
-
-      - run:
-          name: Setup testbed
-          command: |
-            cp .env.sample .env
-            docker-compose -f docker-compose.test.yml build
+            for i in `seq 1 10`;
+            do
+              nc -z localhost 5432 && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo Failed waiting for Postgress && exit 1
 
       - run:
           name: Run migration
-          command: docker-compose -f docker-compose.test.yml run --rm flyway migrate
+          command: |
+            flyway migrate
+            flyway info
 
       - run:
           name: Run coverage tests
           command: |
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt "coverage"
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt "testOnly *"
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt "coverageReport"
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt "coverageAggregate"
+            sbt coverage "testOnly *" coverageReport coverageAggregate
 
       - run:
           name: Push to codecov
