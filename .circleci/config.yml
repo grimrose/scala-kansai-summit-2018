@@ -45,10 +45,10 @@ jobs:
       - run:
           name: Run coverage tests
           command: |
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt coverage
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt "coverage"
             docker-compose -f docker-compose.test.yml run --rm testbed sbt "testOnly *"
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt coverageReport
-            docker-compose -f docker-compose.test.yml run --rm testbed sbt coverageAggregate
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt "coverageReport"
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt "coverageAggregate"
 
       - run:
           name: Push to codecov
