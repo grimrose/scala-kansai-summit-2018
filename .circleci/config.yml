@@ -22,6 +22,9 @@ jobs:
       - run:
           name: expand PATH
           command: echo 'PATH=${HOME}/flyway:$PATH' >> $BASH_ENV
+
+      - checkout
+
       - run:
           name: Install flyway
           command: |
@@ -29,8 +32,6 @@ jobs:
             tar -xzf flyway-commandline-${FLYWAY_VERSION}.tar.gz
             mv flyway-${FLYWAY_VERSION} ${HOME}/flyway
             flyway -v
-
-      - checkout
 
       - restore_cache:
           key: sbt-cache
