@@ -5,9 +5,9 @@ jobs:
       - image: circleci/openjdk:8-jdk-node-browsers
       - image: circleci/postgres:10
         environment:
+          POSTGRES_DB: sandbox
           POSTGRES_USER: sandbox
           POSTGRES_PASSWORD: sandbox-pass
-          POSTGRES_DB: sandbox
       - image: katsubushi/katsubushi
         command: ["-worker-id", "1"]
 
@@ -22,6 +22,9 @@ jobs:
       KATSUBUSHI_PORT: 11212
       PGHOST: localhost
       PGPORT: 5432
+      POSTGRES_DB: sandbox
+      POSTGRES_USER: sandbox
+      POSTGRES_PASSWORD: sandbox-pass
       SBT_OPTS: -XX:+CMSClassUnloadingEnabled -XX:MaxMetaspaceSize=386M
       SKINNY_ENV: test
 
