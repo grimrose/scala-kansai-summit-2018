@@ -1,0 +1,54 @@
+version: 2
+jobs:
+  build:
+    docker:
+    environment:
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: sbt-cache
+
+      - setup_remote_docker:
+          version: 18.05.0-ce
+
+      - run:
+          name: Install Docker Compose
+          command: |
+            set -x
+            curl -L "https://github.com/docker/compose/releases/download/1.23.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+            docker-compose --version
+
+      - run:
+          name: Setup testbed
+          command: |
+            cp .env.sample .env
+            docker-compose -f docker-compose.test.yml build
+
+      - run:
+          name: Run migration
+          command: docker-compose -f docker-compose.test.yml run --rm flyway migrate
+
+      - run:
+          name: Run coverage tests
+          command: |
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt coverage
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt "testOnly *"
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt coverageReport
+            docker-compose -f docker-compose.test.yml run --rm testbed sbt coverageAggregate
+
+      - run:
+          name: Push to codecov
+          command: bash <(curl -s https://codecov.io/bash)
+
+      - store_test_results:
+          path: target/test-reports
+
+      - save_cache:
+          key: sbt-cache
+          paths:
+            - "~/.ivy2/cache"
+            - "~/.sbt"
+            - "~/.m2"
