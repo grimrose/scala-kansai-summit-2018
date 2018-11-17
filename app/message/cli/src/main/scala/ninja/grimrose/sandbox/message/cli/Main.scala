@@ -1,11 +1,11 @@
 package ninja.grimrose.sandbox.message.cli
 
-import akka.actor.ActorSystem
+import akka.actor.{ ActorSystem, CoordinatedShutdown }
 import akka.stream.{ ActorMaterializer, Materializer }
 import ninja.grimrose.sandbox.message
 import ninja.grimrose.sandbox.message.cli.task._
+import ninja.grimrose.sandbox.message.infra.database.DBSettings
 import ninja.grimrose.sandbox.message.{ Contents, MessageId }
-import skinny.DBSettings
 import wvlet.airframe._
 import wvlet.airframe.opts._
 import wvlet.log.{ LogFormatter, LogLevel, LogSupport, Logger }
@@ -53,25 +53,30 @@ class Main(globalOption: GlobalOption) extends DefaultCommand with LogSupport wi
 
 }
 
-trait MainFeature {
+trait MainFeature extends LogSupport {
   def run(name: String, option: TaskOption): Unit = {
     DBSettings.initialize()
 
+    val actorSystem       = ActorSystem("message-cli")
+    val actorMaterializer = ActorMaterializer()(actorSystem)
+
     val design = newDesign.noLifeCycleLogging
       .add(message.design)
-      .bind[ActorSystem].toInstance(ActorSystem("message-cli"))
-      .bind[ActorMaterializer].toSingletonProvider { system: ActorSystem => ActorMaterializer()(system)
-      }
-      .bind[Materializer].toSingletonProvider { mat: ActorMaterializer => mat
-      }
+      .bind[ActorSystem].toInstance(actorSystem)
+      .bind[ActorMaterializer].toInstance(actorMaterializer)
+      .bind[Materializer].toInstance(actorMaterializer)
       .bind[Tasks].toSingleton
 
-    val session = design.newSession
-
     try {
-      session.build[Tasks].dispatch(name, option)
+      design.withSession { _.build[Tasks].dispatch(name, option) }
     } finally {
-      session.close()
+      debug("actor system terminating.")
+
+      actorMaterializer.shutdown()
+
+      CoordinatedShutdown(actorSystem).run(CoordinatedShutdown.jvmExitReason)
+
+      debug("actor system terminated.")
 
       DBSettings.destroy()
     }
