@@ -58,7 +58,7 @@ trait MessageController extends Directives with MessageJsonSupport {
                       import CreateMessageUseCase._
 
                       val future = Source
-                        .single(CreateMessage(contents))
+                        .single(CreateMessage(contents, span))
                         .via(createMessageUseCase.toFlow)
                         .runWith(Sink.head)
 

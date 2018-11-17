@@ -1,20 +1,21 @@
 package ninja.grimrose.sandbox.message.gateway
 
-import akka.http.scaladsl.model.HttpResponse
-import javax.annotation.PreDestroy
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
+import cats.data.ReaderT
+import io.opencensus.trace.Span
 
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.Future
 
 trait IdentityApiAdapter {
 
-  type PromiseResponse = Promise[HttpResponse]
+  type ReaderFS[A] = ReaderT[Future, Span, A]
 
-  // TODO parentSpan
-  def generate(): Future[IdentityApiResponse]
+  def generate(): ReaderFS[IdentityApiResponse]
 
-  @PreDestroy
-  def shutdown(): Unit
+}
 
+trait SimpleAkkaHttpClient {
+  def doRequest(): HttpRequest => Future[HttpResponse]
 }
 
 case class IdentityApiResponse(id: String)

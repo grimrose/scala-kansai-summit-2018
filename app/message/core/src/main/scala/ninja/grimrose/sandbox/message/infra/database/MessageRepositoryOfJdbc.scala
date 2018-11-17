@@ -64,7 +64,8 @@ class MessageRepositoryOfJdbc extends MessageRepository {
     implicit val ec: ExecutionContext = context.executionContext
 
     Future {
-      Messages(MessageRecord.findAll().map(_.asEntity))
+      val m = MessageRecord.column
+      Messages(MessageRecord.findAll(Seq(m.id)).map(_.asEntity))
     }
   }
 

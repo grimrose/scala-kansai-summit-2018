@@ -6,6 +6,7 @@ import akka.NotUsed
 import akka.event.Logging
 import akka.stream.scaladsl.{ Broadcast, Flow, GraphDSL, ZipWith }
 import akka.stream.{ ActorAttributes, Attributes, FlowShape }
+import io.opencensus.trace.Span
 import ninja.grimrose.sandbox.message._
 import ninja.grimrose.sandbox.message.gateway.IdentityApiAdapter
 import ninja.grimrose.sandbox.message.infra.database.{ DBConnectionPoolName, JdbcContextFeature }
@@ -20,7 +21,7 @@ trait CreateMessageUseCase {
 }
 
 object CreateMessageUseCase {
-  case class CreateMessage(contents: Contents)
+  case class CreateMessage(contents: Contents, parentSpan: Span)
   case class MessageCreated(id: MessageId)
 }
 
@@ -38,9 +39,9 @@ class CreateMessageUseCaseOfJdbc(
     Flow.fromGraph(GraphDSL.create() { implicit builder =>
       import GraphDSL.Implicits._
 
-      val contents = builder.add(Flow[CreateMessage].map(_.contents))
+      val broadcast = builder.add(Broadcast[CreateMessage](2))
 
-      val broadcast = builder.add(Broadcast[Contents](2))
+      val contents = builder.add(Flow[CreateMessage].map(_.contents))
 
       val identity = builder.add(identityFlow)
 
@@ -54,20 +55,22 @@ class CreateMessageUseCaseOfJdbc(
 
       // format: off
 
-      contents ~> broadcast                            ~> zipper.in0
-                  broadcast ~> identity ~> idBroadcast ~> zipper.in1
-                                                          zipper.out ~> store ~> event.in0
-                                           idBroadcast                        ~> event.in1
+      broadcast ~> contents                ~> zipper.in0
+      broadcast ~> identity ~> idBroadcast ~> zipper.in1
+                                              zipper.out ~> store ~> event.in0
+                               idBroadcast                        ~> event.in1
 
       // format: on
 
-      FlowShape(contents.in, event.out)
+      FlowShape(broadcast.in, event.out)
     })
   }
 
   private val identityFlow =
-    Flow[Contents]
-      .mapAsyncUnordered(1)(_ => identityApi.generate())
+    Flow[CreateMessage]
+      .mapAsyncUnordered(1) { in =>
+        identityApi.generate().run(in.parentSpan)
+      }
       .map(response => MessageId(response.id.toLong))
 
   private val zipToEntity = ZipWith[Contents, MessageId, Message] { (contents, id) =>

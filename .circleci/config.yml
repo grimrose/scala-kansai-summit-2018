@@ -1,0 +1,87 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/openjdk:8-jdk-node-browsers
+      - image: circleci/postgres:10
+        environment:
+          POSTGRES_DB: sandbox
+          POSTGRES_USER: sandbox
+          POSTGRES_PASSWORD: sandbox-pass
+      - image: katsubushi/katsubushi
+        command: ["-worker-id", "1"]
+
+    environment:
+      FLYWAY_VERSION: 5.2.1
+      FLYWAY_USER: sandbox
+      FLYWAY_PASSWORD: sandbox-pass
+      FLYWAY_BASELINE_VERSION: 000
+      FLYWAY_BASELINE_ON_MIGRATE: true
+      FLYWAY_URL: jdbc:postgresql://localhost:5432/sandbox
+      KATSUBUSHI_HOST: localhost
+      KATSUBUSHI_PORT: 11212
+      PGHOST: localhost
+      PGPORT: 5432
+      POSTGRES_DB: sandbox
+      POSTGRES_USER: sandbox
+      POSTGRES_PASSWORD: sandbox-pass
+      SBT_OPTS: -XX:+CMSClassUnloadingEnabled -XX:MaxMetaspaceSize=386M
+      SKINNY_ENV: test
+
+    steps:
+      - run:
+          name: expand PATH
+          command: echo 'PATH=${HOME}/flyway:$PATH' >> $BASH_ENV
+
+      - checkout
+
+      - run:
+          name: Install flyway
+          command: |
+            curl -L https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}.tar.gz -o flyway-commandline-${FLYWAY_VERSION}.tar.gz
+            tar -xzf flyway-commandline-${FLYWAY_VERSION}.tar.gz
+            mv flyway-${FLYWAY_VERSION} ${HOME}/flyway
+            flyway -v
+
+      - restore_cache:
+          key: sbt-cache
+
+      - setup_remote_docker:
+          version: 18.03.1-ce
+
+      - run: # @see https://github.com/CircleCI-Public/circleci-demo-docker
+          name: Waiting for Postgres to be ready
+          command: |
+            for i in `seq 1 10`;
+            do
+              nc -z localhost 5432 && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo Failed waiting for Postgress && exit 1
+
+      - run:
+          name: Run migration
+          command: |
+            export FLYWAY_LOCATIONS=filesystem:$(pwd)/migration
+            flyway migrate
+            flyway info
+
+      - run:
+          name: Run coverage tests
+          command: |
+            sbt coverage "testOnly *" coverageReport coverageAggregate
+
+      - run:
+          name: Push to codecov
+          command: bash <(curl -s https://codecov.io/bash)
+
+      - store_test_results:
+          path: target/test-reports
+
+      - save_cache:
+          key: sbt-cache
+          paths:
+            - "~/.ivy2/cache"
+            - "~/.sbt"
+            - "~/.m2"

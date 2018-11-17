@@ -1,6 +1,6 @@
 package ninja.grimrose.sandbox.message.http.controller
 
-import java.time.ZonedDateTime
+import java.time.{ LocalDateTime, ZoneId, ZonedDateTime }
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.Marshal
@@ -48,23 +48,13 @@ class MessageControllerSpec
         .bind[MessageRepository]
         .toInstance(new MessageRepository {
           override def findAll(): ReaderTF[PersistentContext, Messages] =
-            ReaderT { _ =>
-              Future.successful(Messages(Seq.empty[Message]))
-            }
-          override def remove(messageId: MessageId): ReaderTF[PersistentContext, Unit] =
-            ReaderT { _ =>
-              Future.successful(())
-            }
-          override def store(entity: Message): ReaderTF[PersistentContext, Unit] = ReaderT { _ =>
-            Future.successful(())
-          }
-          override def find(messageId: MessageId): ReaderTF[PersistentContext, Option[Message]] = ReaderT { _ =>
-            Future.successful(Option(Message(MessageId(Long.MaxValue), Contents("sample"), ZonedDateTime.now())))
-          }
+            ReaderT(_ => Future.successful(Messages(Seq.empty[Message])))
+          override def remove(messageId: MessageId): ReaderTF[PersistentContext, Unit]          = ReaderT(_ => fail())
+          override def store(entity: Message): ReaderTF[PersistentContext, Unit]                = ReaderT(_ => fail())
+          override def find(messageId: MessageId): ReaderTF[PersistentContext, Option[Message]] = ReaderT(_ => fail())
         })
-        .withSession { session =>
-          val controller = session.build[MessageController]
-          val routes     = controller.messageRoutes
+        .build[MessageController] { controller =>
+          val routes = controller.messageRoutes
 
           val request = HttpRequest(uri = "/messages", headers = tracingHeaders)
 
@@ -78,11 +68,38 @@ class MessageControllerSpec
         }
     }
 
-    // TODO get find all
+    "return message by id (GET /messages)" in {
+      baseDesign
+        .bind[MessageRepository]
+        .toInstance(any = new MessageRepository {
+          override def findAll(): ReaderTF[PersistentContext, Messages]                = ReaderT(_ => fail())
+          override def remove(messageId: MessageId): ReaderTF[PersistentContext, Unit] = ReaderT(_ => fail())
+          override def store(entity: Message): ReaderTF[PersistentContext, Unit]       = ReaderT(_ => fail())
+          override def find(messageId: MessageId): ReaderTF[PersistentContext, Option[Message]] = ReaderT { _ =>
+            val dateTime = LocalDateTime.of(2018, 11, 22, 3, 4, 5)
+            val zdt      = dateTime.atZone(ZoneId.of("Asia/Tokyo"))
 
-    // TODO get find by id
+            Future.successful(Option(Message(messageId, Contents("sample"), zdt)))
+          }
+        })
+        .build[MessageController] { controller =>
+          val routes = controller.messageRoutes
 
-    "be able to add messages (POST /messages)" ignore {
+          val request = HttpRequest(uri = "/messages/17", headers = tracingHeaders)
+
+          request ~> routes ~> check {
+            status should ===(StatusCodes.OK)
+
+            contentType should ===(ContentTypes.`application/json`)
+
+            entityAs[String] should ===(
+              """{"id":17,"contents":"sample","createdAt":"2018-11-22T03:04:05+09:00"}"""
+            )
+          }
+        }
+    }
+
+    "be able to add messages (POST /messages)" in {
       baseDesign
         .bind[MessageRepository]
         .toInstance(new MessageRepository {
@@ -90,25 +107,16 @@ class MessageControllerSpec
             ReaderT { _ =>
               Future.successful(Messages(Seq.empty[Message]))
             }
-          override def remove(messageId: MessageId): ReaderTF[PersistentContext, Unit] =
+          override def remove(messageId: MessageId): ReaderTF[PersistentContext, Unit] = ReaderT(_ => fail())
+          override def store(entity: Message): ReaderTF[PersistentContext, Unit] =
             ReaderT { _ =>
               Future.successful(())
             }
-          override def store(entity: Message): ReaderTF[PersistentContext, Unit] = ReaderT { _ =>
-            Future.successful(())
-          }
-          override def find(messageId: MessageId): ReaderTF[PersistentContext, Option[Message]] = ReaderT { _ =>
-            Future.successful(Option(Message(MessageId(Long.MaxValue), Contents("sample"), ZonedDateTime.now())))
-          }
+          override def find(messageId: MessageId): ReaderTF[PersistentContext, Option[Message]] = ReaderT(_ => fail())
         })
-        .bind[IdentityApiAdapter]
-        .toInstance(new IdentityApiAdapter {
-          override def generate(): Future[IdentityApiResponse] = Future.successful(IdentityApiResponse("1"))
-          override def shutdown(): Unit                        = {}
-        })
-        .withSession { session =>
-          val controller = session.build[MessageController]
-          val routes     = controller.messageRoutes
+        .bind[IdentityApiAdapter].toInstance(() => ReaderT(_ => Future.successful(IdentityApiResponse("42"))))
+        .build[MessageController] { controller =>
+          val routes = controller.messageRoutes
 
           val message       = Message(MessageId(42), Contents("jp"), ZonedDateTime.now())
           val messageEntity = Marshal(message).to[MessageEntity].futureValue // futureValue is from ScalaFutures
@@ -116,16 +124,16 @@ class MessageControllerSpec
           val request = Post("/messages").withEntity(messageEntity).withHeaders(tracingHeaders)
 
           request ~> routes ~> check {
-            status should ===(StatusCodes.Created)
+            status should ===(StatusCodes.OK)
 
             contentType should ===(ContentTypes.`application/json`)
 
-            entityAs[String] should ===("""{"description":"User Kapi created."}""")
+            entityAs[String] should ===("""{"id":42}""")
           }
         }
     }
 
-    "be able to delete messages (DELETE /messages)" ignore {
+    "be able to delete messages (DELETE /messages)" in {
       baseDesign
         .bind[MessageRepository]
         .toInstance(new MessageRepository {
@@ -145,18 +153,17 @@ class MessageControllerSpec
               Future.successful(Option(Message(messageId, Contents("sample"), ZonedDateTime.now())))
             }
         })
-        .withSession { session =>
-          val controller = session.build[MessageController]
-          val routes     = controller.messageRoutes
+        .build[MessageController] { controller =>
+          val routes = controller.messageRoutes
 
           val request = Delete(uri = "/messages/13").withHeaders(tracingHeaders)
 
           request ~> routes ~> check {
             status should ===(StatusCodes.OK)
 
-            contentType should ===(ContentTypes.`application/json`)
+            contentType should ===(ContentTypes.`text/plain(UTF-8)`)
 
-            entityAs[String] should ===("""{"description":"User Kapi deleted."}""")
+            entityAs[String] should ===("OK")
           }
         }
     }

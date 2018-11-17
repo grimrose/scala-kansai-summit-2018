@@ -42,7 +42,7 @@
 > testing
 
     saku build-testbed
-    docker-compose -f docker-compose.test.yml run --rm flyway migrate
+    saku test-migrate
     docker-compose -f docker-compose.test.yml run --rm testbed sbt "testOnly *"
 
 # test-identity
@@ -53,8 +53,18 @@
 # test-message
 > testing message modules
 
-    docker-compose -f docker-compose.test.yml run --rm flyway migrate
+    saku test-migrate
     docker-compose -f docker-compose.test.yml run --rm testbed sbt "message/testOnly *"
+
+# test-migrate
+> migrate test database
+
+    docker-compose -f docker-compose.test.yml run --rm flyway migrate
+
+# test-down
+> shutdown test containers
+
+    docker-compose -f docker-compose.test.yml down --remove-orphans -v
 
 # sbt
 > develop in docker 
@@ -65,9 +75,8 @@
 > coverage
 
     saku clean
-    docker-compose -f docker-compose.test.yml run --rm testbed sbt coverage
-    docker-compose -f docker-compose.test.yml run --rm testbed sbt "testOnly *"
-    docker-compose -f docker-compose.test.yml run --rm testbed sbt coverageReport
+    saku test-migrate
+    docker-compose -f docker-compose.test.yml run --rm testbed sbt coverage "testOnly *" coverageReport
     docker-compose -f docker-compose.test.yml run --rm testbed sbt coverageAggregate
 
 
@@ -210,7 +219,7 @@
 > shutdown all services
 
     docker-compose down --remove-orphans -v
-    docker-compose -f docker-compose.test.yml down --remove-orphans -v
+    saku test-down
 
 # flyway-info
 > show flyway info
