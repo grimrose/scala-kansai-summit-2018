@@ -4,10 +4,10 @@ organization in ThisBuild := "ninja.grimrose"
 scalaVersion in ThisBuild := "2.12.7"
 
 lazy val akkaHttpVersion = "10.1.5"
-lazy val akkaVersion     = "2.5.17"
+lazy val akkaVersion     = "2.5.18"
 
-lazy val openCensusVersion      = "0.15.0"
-lazy val openCensusScalaVersion = "0.6.0"
+lazy val openCensusVersion      = "0.17.0" // for opencensus-scala
+lazy val openCensusScalaVersion = "0.6.1"
 
 lazy val airframeVersion = "0.72"
 
