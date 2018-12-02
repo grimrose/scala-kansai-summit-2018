@@ -261,10 +261,6 @@
 
     pipenv run http :8082
 
-# start-jupyter
-
-    docker-compose -f docker-compose.jupyter.yml up
-
 # kibana
 
     open http://localhost:5601
