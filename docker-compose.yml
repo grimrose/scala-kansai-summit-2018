@@ -164,7 +164,7 @@ services:
       - nginx
 
   jaeger-collector:
-    image: jaegertracing/jaeger-collector:1.7
+    image: jaegertracing/jaeger-collector:1.8
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
     command: 
@@ -182,7 +182,7 @@ services:
       - elasticsearch
 
   jaeger-agent:
-    image: jaegertracing/jaeger-agent:1.7
+    image: jaegertracing/jaeger-agent:1.8
     command:
       - "--collector.host-port=jaeger-collector:14267"
       # - "--reporter.tchannel.collector.host-port=jaeger-collector:14267"
@@ -198,7 +198,7 @@ services:
       - jaeger-collector
 
   jaeger-query:
-    image: jaegertracing/jaeger-query:1.7
+    image: jaegertracing/jaeger-query:1.8
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
     command: 
@@ -227,7 +227,7 @@ services:
       - elasticsearch
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.1
     ports:
       - 9200:9200
       - 9300:9300
@@ -245,7 +245,7 @@ services:
       - nw-sandbox
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:6.4.2
+    image: docker.elastic.co/kibana/kibana:6.5.1
     ports:
       - 5601:5601
     depends_on:
