@@ -1,6 +1,6 @@
 FROM openjdk:8
 
-ENV SBT_VERSION 1.2.4
+ENV SBT_VERSION 1.2.8
 
 # @see https://github.com/coursier/coursier/issues/450
 
