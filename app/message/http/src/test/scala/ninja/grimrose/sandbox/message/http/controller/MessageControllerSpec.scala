@@ -93,7 +93,7 @@ class MessageControllerSpec
             contentType should ===(ContentTypes.`application/json`)
 
             entityAs[String] should ===(
-              """{"id":17,"contents":"sample","createdAt":"2018-11-22T03:04:05+09:00"}"""
+              """{"contents":"sample","createdAt":"2018-11-22T03:04:05+09:00","id":17}"""
             )
           }
         }

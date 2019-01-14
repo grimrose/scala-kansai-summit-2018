@@ -1,10 +1,10 @@
 name := "Scala Kansai Summit 2018"
 
 organization in ThisBuild := "ninja.grimrose"
-scalaVersion in ThisBuild := "2.12.7"
+scalaVersion in ThisBuild := "2.12.8"
 
-lazy val akkaHttpVersion = "10.1.5"
-lazy val akkaVersion     = "2.5.18"
+lazy val akkaHttpVersion = "10.1.7"
+lazy val akkaVersion     = "2.5.19"
 
 lazy val openCensusVersion      = "0.17.0" // for opencensus-scala
 lazy val openCensusScalaVersion = "0.6.1"
@@ -12,7 +12,7 @@ lazy val openCensusScalaVersion = "0.6.1"
 lazy val airframeVersion = "0.72"
 
 lazy val skinnyVersion      = "3.0.0"
-lazy val scalikejdbcVersion = "3.3.1"
+lazy val scalikejdbcVersion = "3.3.2"
 
 lazy val postgresqlVersion = "42.2.5"
 lazy val h2Version         = "1.4.197"
@@ -50,7 +50,7 @@ lazy val opencensusDependencies = Seq(
   // stats
   "io.opencensus" % "opencensus-exporter-stats-stackdriver" % openCensusVersion,
   "io.opencensus" % "opencensus-exporter-stats-prometheus"  % openCensusVersion,
-  "io.prometheus" % "simpleclient_httpserver"               % "0.5.0"
+  "io.prometheus" % "simpleclient_httpserver"               % "0.6.0"
 )
 
 lazy val airframeCliDependencies = Seq(
