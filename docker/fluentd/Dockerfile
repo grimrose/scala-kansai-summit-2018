@@ -4,6 +4,7 @@ RUN buildDeps="sudo make gcc g++ libc-dev ruby-dev" \
     && apt-get update \
     && apt-get install -y --no-install-recommends $buildDeps \
     && sudo gem install \
+        fluent-plugin-google-cloud \
         fluent-plugin-elasticsearch \
     && sudo gem sources --clear-all \
     && SUDO_FORCE_REMOVE=yes \
