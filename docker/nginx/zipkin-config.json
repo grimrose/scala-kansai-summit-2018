@@ -1,4 +1,4 @@
 {
   "service_name": "nginx",
-  "collector_host": "jaeger-collector"
+  "collector_host": "jaeger"
 }
