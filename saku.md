@@ -16,7 +16,7 @@
 # fmt
 > scalafmt
 
-    sbt scalafmtSbt scalafmt
+    sbt scalafmtSbt scalafmt test:scalafmt
 
 # updates
 > show a list of project dependencies that can be updated
@@ -67,7 +67,7 @@
     docker-compose -f docker-compose.test.yml down --remove-orphans -v
 
 # sbt
-> develop in docker 
+> develop in docker
 
     docker-compose -f docker-compose.test.yml run --rm testbed sbt
 
@@ -211,10 +211,6 @@
 
     pipenv run http :8080/stub_status
 
-# nginx-metrics
-
-    pipenv run http :9113/metrics
-
 # down
 > shutdown all services
 
@@ -241,13 +237,12 @@
     pipenv run http :9002
 
 # post-message
-> e.g. saku post-message -- contents=\"hello world\"
 
     pipenv run http POST :8080/messages
 
 # show-messages
 
-    pipenv run http :8080/messages
+    pipenv run http GET :8080/messages
 
 # get-identity
 
@@ -257,54 +252,6 @@
 
     pipenv run http :8080/hoge
 
-# show-query-stats
+# jaeger-logs
 
-    pipenv run http :8082
-
-# kibana
-
-    open http://localhost:5601
-
-# jaeger-collector-help
-
-    docker run --rm jaegertracing/jaeger-collector:1.7 help
-
-# jaeger-collector-es-help
-
-    docker run --rm -e SPAN_STORAGE_TYPE=elasticsearch jaegertracing/jaeger-collector:1.7 help
-
-# jaeger-collector-logs
-
-    docker-compose logs jaeger-collector
-
-# jaeger-collector-metrics
-
-    pipenv run http :14268/metrics
-
-# jaeger-agent-help
-
-    docker run --rm jaegertracing/jaeger-agent:1.7 help
-
-# jaeger-agent-logs
-
-    docker-compose logs jaeger-agent
-
-# jaeger-agent-metrics
-
-    pipenv run http :5778/metrics
-
-# jaeger-query-help
-
-    docker run --rm jaegertracing/jaeger-query:1.7 help
-
-# jaeger-query-es-help
-
-    docker run --rm -e SPAN_STORAGE_TYPE=elasticsearch jaegertracing/jaeger-query:1.7 help
-
-# jaeger-query-logs
-
-    docker-compose logs jaeger-query
-
-# jaeger-query-metrics
-
-    pipenv run http :16686/metrics
+    docker-compose logs jaeger
